@@ -40,7 +40,7 @@ namespace foni
         public string Initials { get; set; }
         public string FirstName { get; set; }
         public string LastName { get; set; }
-        public string FullName => $"{FirstName} {LastName}";
+        public string FullName => $"{FirstName} {LastName}".Trim();
     }
 
     public class Foni
@@ -71,10 +71,13 @@ namespace foni
             "Antonio Giovinazzi",
             "Nikita Mazepin",
             "Mick Schumacher",
-            "Yuki Tsunoda"
+            "Yuki Tsunoda",
+
+            "Jack Aitken",
+            "Player One"
         };
 
-        Dictionary<string, string> intlOverride = new()
+        private readonly Dictionary<string, string> intlOverride = new()
         {
             ["Kimi Räikkönen"] = "RAI"
         };
@@ -103,7 +106,7 @@ namespace foni
             if (args.Length >= 1)
                 ChangeNames(args[0]);
             else
-                ChangeNames("default.nms");
+                RestoreOriginalNames();
         }
 
         private void InitOffsets()
@@ -138,12 +141,20 @@ namespace foni
             byte[] oFmt = Encoding.UTF8.GetBytes("{o:mixed}" + tokens[0] + "{/o} {o:upper}" + tokens[1].ToUpper() + "{/o}");
 
             // Find first offset
-            offsets.FirstLast1 = FindString(MAIN_START, fullTV);
-            offsets.First = FindString(offsets.FirstLast1 + fullTV.Length, first);
-            offsets.Last = FindString(offsets.First + first.Length, last);
-            offsets.FirstLast2 = FindString(offsets.Last + last.Length, fullTV);
-            offsets.Initials = FindString(offsets.FirstLast2 + fullTV.Length, initials);
-            offsets.FullFormat = FindString(OFMT_START, oFmt);
+            if (name != "Player One")
+            {
+                offsets.FirstLast1 = FindString(MAIN_START, fullTV);
+                offsets.First = FindString(offsets.FirstLast1 + fullTV.Length, first);
+                offsets.Last = FindString(offsets.First + first.Length, last);
+                offsets.FirstLast2 = FindString(offsets.Last + last.Length, fullTV);
+                offsets.Initials = FindString(offsets.FirstLast2 + fullTV.Length, initials);
+                offsets.FullFormat = FindString(OFMT_START, oFmt);
+            }
+            else
+            {
+                string p1Format = "{o:mixed}Player{/o} {o:upper}One{/o}";
+                offsets.FullFormat = FindString(OFMT_START, Encoding.UTF8.GetBytes(p1Format));
+            }
 
             return offsets;
         }
@@ -231,6 +242,28 @@ namespace foni
             proc.Write(addr - 3, data);
         }
 
+        private void RestoreOriginalNames()
+        {
+            foreach (string name in offsets.Keys)
+            {
+                Offsets ofs = offsets[name];
+                string[] words = name.Split();
+                string first = words[0];
+                string last = words[1];
+                string tvName = $"{first} {last.ToUpper()}";
+
+                if (name != "Player One")
+                {
+                    OverwriteString(ofs.Initials, intlOverride.GetValueOrDefault(name, last[0..3].ToUpper()));
+                    OverwriteString(ofs.First, first);
+                    OverwriteString(ofs.Last, last.ToUpper());
+                    OverwriteString(ofs.FirstLast1, tvName);
+                    OverwriteString(ofs.FirstLast2, tvName);
+                }
+                OverwriteString(ofs.FullFormat, "{o:mixed}" + first + "{/o} {o:upper}" + last.ToUpper() + "{/o}");
+            }
+        }
+
         private void ChangeNames(string filename)
         {
             Console.WriteLine("Applying names file: " + filename);
@@ -262,12 +295,15 @@ namespace foni
 
                 Offsets ofs = offsets[tgt.Driver];
 
-                if (!string.IsNullOrEmpty(tgt.Initials) && tgt.Initials.Length == 3)
-                    OverwriteString(ofs.Initials, tgt.Initials);
-                OverwriteString(ofs.First, tgt.FirstName);
-                OverwriteString(ofs.Last, tgt.LastName);
-                OverwriteString(ofs.FirstLast1, tgt.FullName);
-                OverwriteString(ofs.FirstLast2, tgt.FullName);
+                if (tgt.Driver != "Player One")
+                {
+                    if (!string.IsNullOrEmpty(tgt.Initials) && tgt.Initials.Length == 3)
+                        OverwriteString(ofs.Initials, tgt.Initials);
+                    OverwriteString(ofs.First, tgt.FirstName);
+                    OverwriteString(ofs.Last, tgt.LastName);
+                    OverwriteString(ofs.FirstLast1, tgt.FullName);
+                    OverwriteString(ofs.FirstLast2, tgt.FullName);
+                }
                 OverwriteString(ofs.FullFormat, tgt.FullName);
             }
         }
