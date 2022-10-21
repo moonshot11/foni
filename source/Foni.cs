@@ -268,6 +268,7 @@ namespace foni
                 OverwriteString(ofs.Last, tgt.LastName);
                 OverwriteString(ofs.FirstLast1, tgt.FullName);
                 OverwriteString(ofs.FirstLast2, tgt.FullName);
+                OverwriteString(ofs.FullFormat, tgt.FullName);
             }
         }
     }
