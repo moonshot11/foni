@@ -23,12 +23,16 @@ namespace foni
         public long Initials { get; set; }
         public long FullFormat { get; set; }
 
+        // An extra string just for Player One
+        public long ExtraFirstLast { get; set; }
+
         public override string ToString()
         {
             return $"FirstLast1: 0x{Convert.ToString(FirstLast1, 16)}\n" +
                 $"First: 0x{Convert.ToString(First, 16)}\n" +
                 $"Last: 0x{Convert.ToString(Last, 16)}\n" +
                 $"FirstLast2: 0x{Convert.ToString(FirstLast2, 16)}\n" +
+                $"FirstLast3 (PO): 0x{Convert.ToString(FirstLast2, 16)}\n" +
                 $"Initials: 0x{Convert.ToString(Initials, 16)}\n" +
                 $"FullFormat: 0x{Convert.ToString(FullFormat, 16)}\n";
         }
@@ -52,7 +56,7 @@ namespace foni
 
         readonly string[] drivers =
         {
-            "Carlos Sainz",
+            "Carlos Sainz", // He should always be first
             "Daniel Ricciardo",
             "Fernando Alonso",
             "Kimi Räikkönen",
@@ -74,13 +78,19 @@ namespace foni
             "Yuki Tsunoda",
 
             "Jack Aitken",
-            "Player One"
+            "Oscar Piastri",
+            PO_FULL
         };
 
         private readonly Dictionary<string, string> intlOverride = new()
         {
             ["Kimi Räikkönen"] = "RAI"
         };
+
+        private const string PO_FIRST = "Player";
+        private const string PO_LAST = "One";
+        private const string PO_INITIALS = "PLY";
+        private const string PO_FULL = "Player One";
 
         private Dictionary<string, Offsets> offsets = new();
         private readonly ManagedProcess proc;
@@ -131,18 +141,19 @@ namespace foni
         {
             Offsets offsets = new();
 
-            string[] tokens = name.Split();
-            string intlString = intlOverride.GetValueOrDefault(name, tokens[1][0..3].ToUpper());
-
-            byte[] first = Encoding.UTF8.GetBytes(tokens[0]);
-            byte[] last = Encoding.UTF8.GetBytes(tokens[1].ToUpper()); ;
-            byte[] fullTV = Encoding.UTF8.GetBytes(tokens[0] + ' ' + tokens[1].ToUpper());
-            byte[] initials = Encoding.UTF8.GetBytes(intlString);
-            byte[] oFmt = Encoding.UTF8.GetBytes("{o:mixed}" + tokens[0] + "{/o} {o:upper}" + tokens[1].ToUpper() + "{/o}");
-
             // Find first offset
-            if (name != "Player One")
+            if (name != PO_FULL)
             {
+
+                string[] tokens = name.Split();
+                string intlString = intlOverride.GetValueOrDefault(name, tokens[1][0..3].ToUpper());
+
+                byte[] first = Encoding.UTF8.GetBytes(tokens[0]);
+                byte[] last = Encoding.UTF8.GetBytes(tokens[1].ToUpper()); ;
+                byte[] fullTV = Encoding.UTF8.GetBytes(tokens[0] + ' ' + tokens[1].ToUpper());
+                byte[] initials = Encoding.UTF8.GetBytes(intlString);
+                byte[] oFmt = Encoding.UTF8.GetBytes("{o:mixed}" + tokens[0] + "{/o} {o:upper}" + tokens[1].ToUpper() + "{/o}");
+
                 offsets.FirstLast1 = FindString(MAIN_START, fullTV);
                 offsets.First = FindString(offsets.FirstLast1 + fullTV.Length, first);
                 offsets.Last = FindString(offsets.First + first.Length, last);
@@ -152,8 +163,19 @@ namespace foni
             }
             else
             {
-                string p1Format = "{o:mixed}Player{/o} {o:upper}One{/o}";
-                offsets.FullFormat = FindString(OFMT_START, Encoding.UTF8.GetBytes(p1Format));
+                byte[] first = Encoding.UTF8.GetBytes(PO_FIRST);
+                byte[] last = Encoding.UTF8.GetBytes(PO_LAST); ;
+                byte[] fullTV = Encoding.UTF8.GetBytes(PO_FULL);
+                byte[] initials = Encoding.UTF8.GetBytes(PO_INITIALS);
+                byte[] oFmt = Encoding.UTF8.GetBytes($"{{o:mixed}}{PO_FIRST}{{/o}} {{o:upper}}{PO_LAST}{{/o}}");
+
+                offsets.FirstLast1 = FindString(MAIN_START, fullTV);
+                offsets.FirstLast2 = FindString(offsets.FirstLast1 + fullTV.Length, fullTV);
+                //offsets.ExtraFirstLast = FindString(offsets.FirstLast2 + fullTV.Length, fullTV);
+                offsets.First = FindString(MAIN_START, first);
+                offsets.Last = FindString(offsets.First + first.Length, last);
+                //offsets.Initials = FindString(offsets.FirstLast2 + fullTV.Length, initials);
+                offsets.FullFormat = FindString(OFMT_START, oFmt);
             }
 
             return offsets;
@@ -176,6 +198,7 @@ namespace foni
                     proc.Read(addr - 3, 3).SequenceEqual(new byte[] { (byte)strlen, 0, 0 }) // Check that length prefix is present
                     )
                 {
+                    //Console.WriteLine(Convert.ToString(addr, 16));
                     return addr;
                 }
             }
@@ -234,11 +257,13 @@ namespace foni
 
         private void OverwriteString(long addr, string value)
         {
-            int len = value.Length;
-            value = "\0\0\0" + value + "\0";
-
             byte[] data = Encoding.UTF8.GetBytes(value);
-            data[0] = (byte)len;
+            int strlen = data.Length;
+
+            value = "\0\0\0" + value + "\0";
+            data = Encoding.UTF8.GetBytes(value);
+
+            data[0] = (byte)strlen;
             proc.Write(addr - 3, data);
         }
 
@@ -252,15 +277,24 @@ namespace foni
                 string last = words[1];
                 string tvName = $"{first} {last.ToUpper()}";
 
-                if (name != "Player One")
+                if (name == PO_FULL)
+                {
+                    OverwriteString(ofs.First, PO_FIRST);
+                    OverwriteString(ofs.Last, PO_LAST);
+                    OverwriteString(ofs.FirstLast1, PO_FULL);
+                    OverwriteString(ofs.FirstLast2, PO_FULL);
+                    //OverwriteString(ofs.ExtraFirstLast, PO_FULL);
+                    OverwriteString(ofs.FullFormat, $"{{o:mixed}}{PO_FIRST}{{/o}} {{o:upper}}{PO_LAST}{{/o}}");
+                }
+                else
                 {
                     OverwriteString(ofs.Initials, intlOverride.GetValueOrDefault(name, last[0..3].ToUpper()));
                     OverwriteString(ofs.First, first);
                     OverwriteString(ofs.Last, last.ToUpper());
                     OverwriteString(ofs.FirstLast1, tvName);
                     OverwriteString(ofs.FirstLast2, tvName);
+                    OverwriteString(ofs.FullFormat, "{o:mixed}" + first + "{/o} {o:upper}" + last.ToUpper() + "{/o}");
                 }
-                OverwriteString(ofs.FullFormat, "{o:mixed}" + first + "{/o} {o:upper}" + last.ToUpper() + "{/o}");
             }
         }
 
@@ -295,16 +329,15 @@ namespace foni
 
                 Offsets ofs = offsets[tgt.Driver];
 
-                if (tgt.Driver != "Player One")
-                {
-                    if (!string.IsNullOrEmpty(tgt.Initials) && tgt.Initials.Length == 3)
-                        OverwriteString(ofs.Initials, tgt.Initials);
-                    OverwriteString(ofs.First, tgt.FirstName);
-                    OverwriteString(ofs.Last, tgt.LastName);
-                    OverwriteString(ofs.FirstLast1, tgt.FullName);
-                    OverwriteString(ofs.FirstLast2, tgt.FullName);
-                }
+                if (!string.IsNullOrEmpty(tgt.Initials) && tgt.Initials.Length == 3
+                    && tgt.Driver != PO_FULL)
+                    OverwriteString(ofs.Initials, tgt.Initials);
+                OverwriteString(ofs.First, tgt.FirstName);
+                OverwriteString(ofs.Last, tgt.LastName);
+                OverwriteString(ofs.FirstLast1, tgt.FullName);
+                OverwriteString(ofs.FirstLast2, tgt.FullName);
                 OverwriteString(ofs.FullFormat, tgt.FullName);
+                //if (tgt.Driver == PO_FULL) OverwriteString(ofs.ExtraFirstLast, tgt.FullName);
             }
         }
     }

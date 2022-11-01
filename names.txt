@@ -1,20 +1,24 @@
-Lewis Hamilton
-Valtteri Bottas
-Max Verstappen
-Sergio Perez
-Charles Leclerc
-Carlos Sainz
-Lando Norris
-Daniel Ricciardo
-Pierre Gasly
-Yuki Tsunoda
-Fernando Alonso:
-Esteban Ocon
-Kimi Räikkönen
-Antonio Giovinazzi
-Sebastian Vettel
-Lance Stroll
-Nikita Mazepin
-Mick Schumacher
-George Russell
-Nicholas Latifi
+Lewis Hamilton:     HAM, Lewis, HAMILTON
+Valtteri Bottas:    BOT, Valtteri, BOTTAS
+Max Verstappen:     VER, Max, VERSTAPPEN
+Sergio Perez:       PER, Sergio, PEREZ
+Charles Leclerc:    LEC, Charles, LECLERC
+Carlos Sainz:       SAI, Carlos, SAINZ
+Lando Norris:       NOR, Lando, NORRIS
+Daniel Ricciardo:   RIC, Daniel, RICCIARDO
+Pierre Gasly:       GAS, Pierre, GASLY
+Yuki Tsunoda:       TSU, Yuki, TSUNODA
+Fernando Alonso:    ALO, Fernando, ALONSO
+Esteban Ocon:       OCO, Esteban, OCON
+Kimi Räikkönen:     RAI, Kimi, RAIKKONEN
+Antonio Giovinazzi: GIO, Antonio, GIOVINAZZI
+Sebastian Vettel:   VET, Sebastian, VETTEL
+Lance Stroll:       STR, Lance, STROLL
+Nikita Mazepin:     MAZ, Nikita, MAZEPIN
+Mick Schumacher:    SCH, Mick, SCHUMACHER
+George Russell:     RUS, George, RUSSELL
+Nicholas Latifi:    LAT, Nicholas, LATIFI
+
+Jack Aitken:        AIT, Jack, AITKEN
+Oscar Piastri:      PIA, Oscar, PIASTRI
+Player One:         ONE, Player, ONE
