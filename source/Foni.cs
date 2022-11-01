@@ -23,8 +23,8 @@ namespace foni
         public long Initials { get; set; }
         public long FullFormat { get; set; }
 
-        // An extra string just for Player One
-        public long ExtraFirstLast { get; set; }
+        public long SCD_First { get; set; }
+        public long SCD_Last { get; set; }
 
         public override string ToString()
         {
@@ -34,7 +34,9 @@ namespace foni
                 $"FirstLast2: 0x{Convert.ToString(FirstLast2, 16)}\n" +
                 $"FirstLast3 (PO): 0x{Convert.ToString(FirstLast2, 16)}\n" +
                 $"Initials: 0x{Convert.ToString(Initials, 16)}\n" +
-                $"FullFormat: 0x{Convert.ToString(FullFormat, 16)}\n";
+                $"FullFormat: 0x{Convert.ToString(FullFormat, 16)}\n" +
+                $"SCD_First: 0x{Convert.ToString(SCD_First, 16)}\n" +
+                $"SCD_Last: 0x{Convert.ToString(SCD_Last, 16)}\n";
         }
     }
 
@@ -49,14 +51,16 @@ namespace foni
 
     public class Foni
     {
-
+        // Region that handles driver selection and race directory
         const long MAIN_START = 0x2E5600000;
-        const long OFMT_START = 0x2E5800000 ;
+        const long OFMT_START = 0x2E5800000;
+        // Region that handles alert messages (e.g. "__ is out of the session")
+        const long SECOND_START = 0x30771C000;
         const long SEARCH_LIMIT = 0x400000000;
 
         readonly string[] drivers =
         {
-            "Carlos Sainz", // He should always be first
+            "Carlos Sainz", // Sainz should always be first
             "Daniel Ricciardo",
             "Fernando Alonso",
             "Kimi Räikkönen",
@@ -89,7 +93,6 @@ namespace foni
 
         private const string PO_FIRST = "Player";
         private const string PO_LAST = "One";
-        private const string PO_INITIALS = "PLY";
         private const string PO_FULL = "Player One";
 
         private Dictionary<string, Offsets> offsets = new();
@@ -160,33 +163,33 @@ namespace foni
                 offsets.FirstLast2 = FindString(offsets.Last + last.Length, fullTV);
                 offsets.Initials = FindString(offsets.FirstLast2 + fullTV.Length, initials);
                 offsets.FullFormat = FindString(OFMT_START, oFmt);
+
+                offsets.SCD_First = FindString(SECOND_START, first, alignOffset: 0, embedLength: false);
+                offsets.SCD_Last = FindString(offsets.SCD_First + first.Length, last, alignOffset: 0, embedLength: false);
             }
             else
             {
                 byte[] first = Encoding.UTF8.GetBytes(PO_FIRST);
                 byte[] last = Encoding.UTF8.GetBytes(PO_LAST); ;
                 byte[] fullTV = Encoding.UTF8.GetBytes(PO_FULL);
-                byte[] initials = Encoding.UTF8.GetBytes(PO_INITIALS);
                 byte[] oFmt = Encoding.UTF8.GetBytes($"{{o:mixed}}{PO_FIRST}{{/o}} {{o:upper}}{PO_LAST}{{/o}}");
 
                 offsets.FirstLast1 = FindString(MAIN_START, fullTV);
                 offsets.FirstLast2 = FindString(offsets.FirstLast1 + fullTV.Length, fullTV);
-                //offsets.ExtraFirstLast = FindString(offsets.FirstLast2 + fullTV.Length, fullTV);
                 offsets.First = FindString(MAIN_START, first);
                 offsets.Last = FindString(offsets.First + first.Length, last);
-                //offsets.Initials = FindString(offsets.FirstLast2 + fullTV.Length, initials);
                 offsets.FullFormat = FindString(OFMT_START, oFmt);
             }
 
             return offsets;
         }
 
-        private long FindString(long startAddr, byte[] utfArray)
+        private long FindString(long startAddr, byte[] utfArray, int alignOffset = 1, bool embedLength = true)
         {
             uint strlen = (uint)utfArray.Length;
             // Align start address, then add 1 byte
             // (This is how these strings are aligned for some reason)
-            startAddr += (8 - (startAddr % 8)) + 1;
+            startAddr += (8 - (startAddr % 8)) + alignOffset;
 
             for (long addr = startAddr; addr < startAddr + SEARCH_LIMIT; addr += 8)
             {
@@ -195,7 +198,7 @@ namespace foni
                     proc.Read(addr, 1)?[0] == utfArray[0] && // Check initial character
                     proc.Read(addr+1, 1)?[0] == utfArray[1] && // Check second character
                     proc.Read(addr, strlen).SequenceEqual(utfArray) && // Check full string
-                    proc.Read(addr - 3, 3).SequenceEqual(new byte[] { (byte)strlen, 0, 0 }) // Check that length prefix is present
+                    ( !embedLength || proc.Read(addr - 3, 3).SequenceEqual(new byte[] { (byte)strlen, 0, 0 }) ) // Check that length prefix is present
                     )
                 {
                     //Console.WriteLine(Convert.ToString(addr, 16));
@@ -255,16 +258,20 @@ namespace foni
             return false;
         }
 
-        private void OverwriteString(long addr, string value)
+        private void OverwriteString(long addr, string value, bool includeLength = true)
         {
             byte[] data = Encoding.UTF8.GetBytes(value);
             int strlen = data.Length;
 
-            value = "\0\0\0" + value + "\0";
-            data = Encoding.UTF8.GetBytes(value);
-
-            data[0] = (byte)strlen;
-            proc.Write(addr - 3, data);
+            if (includeLength)
+                value = "\0\0\0" + value;
+            data = Encoding.UTF8.GetBytes(value + '\0');
+            if (includeLength)
+            {
+                data[0] = (byte)strlen;
+                addr -= 3;
+            }
+            proc.Write(addr, data);
         }
 
         private void RestoreOriginalNames()
@@ -294,6 +301,9 @@ namespace foni
                     OverwriteString(ofs.FirstLast1, tvName);
                     OverwriteString(ofs.FirstLast2, tvName);
                     OverwriteString(ofs.FullFormat, "{o:mixed}" + first + "{/o} {o:upper}" + last.ToUpper() + "{/o}");
+
+                    OverwriteString(ofs.SCD_First, first, false);
+                    OverwriteString(ofs.SCD_Last, last.ToUpper(), false);
                 }
             }
         }
@@ -337,7 +347,12 @@ namespace foni
                 OverwriteString(ofs.FirstLast1, tgt.FullName);
                 OverwriteString(ofs.FirstLast2, tgt.FullName);
                 OverwriteString(ofs.FullFormat, tgt.FullName);
-                //if (tgt.Driver == PO_FULL) OverwriteString(ofs.ExtraFirstLast, tgt.FullName);
+
+                if (tgt.Driver != PO_FULL)
+                {
+                    OverwriteString(ofs.SCD_First, tgt.FirstName, false);
+                    OverwriteString(ofs.SCD_Last, tgt.LastName, false);
+                }
             }
         }
     }
