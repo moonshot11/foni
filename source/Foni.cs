@@ -51,6 +51,9 @@ namespace foni
 
     public class Foni
     {
+        // Use shortDrivers list to optimize small changesets
+        const bool SHORT_DRIVERS = true;
+
         // Region that handles driver selection and race directory
         const long MAIN_START = 0x2E5600000;
         const long OFMT_START = 0x2E5800000;
@@ -58,7 +61,7 @@ namespace foni
         const long SECOND_START = 0x30771C000;
         const long SEARCH_LIMIT = 0x400000000;
 
-        readonly string[] drivers =
+        readonly string[] longDrivers =
         {
             "Carlos Sainz", // Sainz should always be first
             "Daniel Ricciardo",
@@ -81,10 +84,21 @@ namespace foni
             "Mick Schumacher",
             "Yuki Tsunoda",
 
-            "Jack Aitken",
-            "Oscar Piastri",
+            "Michael Schumacher",
+            "Felipe Massa",
             PO_FULL
         };
+
+        readonly string[] shortDrivers =
+        {
+            "Carlos Sainz", // Sainz should always be first
+            "Nikita Mazepin",
+            "Michael Schumacher",
+            "Felipe Massa",
+            PO_FULL
+        };
+
+        readonly string[] drivers;
 
         private readonly Dictionary<string, string> intlOverride = new()
         {
@@ -100,6 +114,11 @@ namespace foni
 
         public Foni(string procName)
         {
+#if DEBUG
+            drivers = longDrivers;
+#else
+            drivers = shortDrivers;
+#endif
             proc = new ManagedProcess(procName);
             if (!proc.Valid)
             {
