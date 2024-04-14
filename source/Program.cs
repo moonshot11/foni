@@ -11,8 +11,7 @@ namespace foni
     {
         public static void Main(string[] args)
         {
-            //args = new string[] { "names.txt" };
-            new Foni("F1_2021_dx12").Run(args);
+            new Foni(args[0]).Run(args);
         }
     }
 }

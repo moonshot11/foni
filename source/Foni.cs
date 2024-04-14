@@ -51,54 +51,16 @@ namespace foni
 
     public class Foni
     {
-        // Use shortDrivers list to optimize small changesets
-        const bool SHORT_DRIVERS = true;
-
         // Region that handles driver selection and race directory
-        const long MAIN_START = 0x2E5600000;
-        const long OFMT_START = 0x2E5800000;
+        private long MAIN_START;
+        private long OFMT_START;
         // Region that handles alert messages (e.g. "__ is out of the session")
-        const long SECOND_START = 0x30771C000;
-        const long SEARCH_LIMIT = 0x400000000;
+        private long SECOND_START;
+        private long SEARCH_LIMIT;
 
-        readonly string[] longDrivers =
-        {
-            "Carlos Sainz", // Sainz should always be first
-            "Daniel Ricciardo",
-            "Fernando Alonso",
-            "Kimi Räikkönen",
-            "Lewis Hamilton",
-            "Max Verstappen",
-            "Sebastian Vettel",
-            "Sergio Perez",
-            "Valtteri Bottas",
-            "Esteban Ocon",
-            "Lance Stroll",
-            "George Russell",
-            "Lando Norris",
-            "Charles Leclerc",
-            "Pierre Gasly",
-            "Nicholas Latifi",
-            "Antonio Giovinazzi",
-            "Nikita Mazepin",
-            "Mick Schumacher",
-            "Yuki Tsunoda",
-
-            "Michael Schumacher",
-            "Felipe Massa",
-            PO_FULL
-        };
-
-        readonly string[] shortDrivers =
-        {
-            "Carlos Sainz", // Sainz should always be first
-            "Nikita Mazepin",
-            "Michael Schumacher",
-            "Felipe Massa",
-            PO_FULL
-        };
-
-        readonly string[] drivers;
+        private string[] longDrivers;
+        private string[] shortDrivers;
+        private string[] drivers;
 
         private readonly Dictionary<string, string> intlOverride = new()
         {
@@ -112,14 +74,15 @@ namespace foni
         private Dictionary<string, Offsets> offsets = new();
         private readonly ManagedProcess proc;
 
-        public Foni(string procName)
+        public Foni(string procname)
         {
+            InitData(procname);
 #if DEBUG
             drivers = longDrivers;
 #else
             drivers = shortDrivers;
 #endif
-            proc = new ManagedProcess(procName);
+            proc = new ManagedProcess(procname);
             if (!proc.Valid)
             {
                 Console.WriteLine("Could not find process");
@@ -135,8 +98,8 @@ namespace foni
                 WriteOffsets("offsets.json");
             }
 
-            if (args.Length >= 1)
-                ChangeNames(args[0]);
+            if (args.Length >= 2)
+                ChangeNames(args[1]);
             else
                 RestoreOriginalNames();
         }
@@ -373,6 +336,105 @@ namespace foni
                     OverwriteString(ofs.SCD_Last, tgt.LastName, false);
                 }
             }
+        }
+
+        private void InitData(string procname)
+        {
+            if (procname.Contains("2021"))
+                Init2021();
+            else if (procname.Contains("_22"))
+                Init2022();
+        }
+
+        private void Init2021()
+        {
+            MAIN_START = 0x2E5600000;
+            OFMT_START = 0x2E5800000;
+            SECOND_START = 0x30771C000;
+            SEARCH_LIMIT = 0x400000000;
+
+            shortDrivers = new string[]
+            {
+                "Carlos Sainz", // Sainz should always be first
+                "Nikita Mazepin",
+                "Michael Schumacher",
+                "Felipe Massa",
+                PO_FULL
+            };
+
+            longDrivers = new string[]
+            {
+                "Carlos Sainz", // Sainz should always be first
+                "Daniel Ricciardo",
+                "Fernando Alonso",
+                "Kimi Räikkönen",
+                "Lewis Hamilton",
+                "Max Verstappen",
+                "Sebastian Vettel",
+                "Sergio Perez",
+                "Valtteri Bottas",
+                "Esteban Ocon",
+                "Lance Stroll",
+                "George Russell",
+                "Lando Norris",
+                "Charles Leclerc",
+                "Pierre Gasly",
+                "Nicholas Latifi",
+                "Antonio Giovinazzi",
+                "Nikita Mazepin",
+                "Mick Schumacher",
+                "Yuki Tsunoda",
+
+                "Michael Schumacher",
+                "Felipe Massa",
+                PO_FULL
+            };
+
+        }
+
+        private void Init2022()
+        {
+            MAIN_START = 0x2E5600000;
+            OFMT_START = 0x2E5800000;
+            SECOND_START = 0x30771C000;
+            SEARCH_LIMIT = 0x400000000;
+
+            shortDrivers = new string[]
+            {
+                "Carlos Sainz", // Sainz should always be first
+                "Nikita Mazepin",
+                "Michael Schumacher",
+                "Felipe Massa",
+                PO_FULL
+            };
+
+            longDrivers = new string[]
+            {
+                "Carlos Sainz", // Sainz should always be first
+                "Daniel Ricciardo",
+                "Fernando Alonso",
+                "Kimi Räikkönen",
+                "Lewis Hamilton",
+                "Max Verstappen",
+                "Sebastian Vettel",
+                "Sergio Perez",
+                "Valtteri Bottas",
+                "Esteban Ocon",
+                "Lance Stroll",
+                "George Russell",
+                "Lando Norris",
+                "Charles Leclerc",
+                "Pierre Gasly",
+                "Nicholas Latifi",
+                "Antonio Giovinazzi",
+                "Nikita Mazepin",
+                "Mick Schumacher",
+                "Yuki Tsunoda",
+
+                "Michael Schumacher",
+                "Felipe Massa",
+                PO_FULL
+            };
         }
     }
 }
